@@ -13,6 +13,7 @@ import {
   markAsSeen,
 } from "./dedupe.js";
 import { sendNewsToFeishu } from "./feishu.js";
+import { translateItems } from "./translate.js";
 
 export default {
   /**
@@ -74,6 +75,7 @@ async function handleScheduled(env) {
   const webhookSecret = env.FEISHU_WEBHOOK_SECRET || null;
   const maxItems = getInt(env, "MAX_ITEMS", 10);
   const summaryMaxLen = getInt(env, "SUMMARY_MAX_LENGTH", 200);
+  const translateEnabled = env.TRANSLATE_ENABLED !== "false"; // 默认开启
 
   console.log(`[worker] 开始抓取，配置源 ${getSources(env).length} 个`);
 
@@ -113,11 +115,14 @@ async function handleScheduled(env) {
   // 5. 取前 N 条推送
   const toSend = fresh.slice(0, maxItems);
 
-  // 6. 推送飞书
+  // 6. 翻译为中文（仅翻译待推送的条目，减少 API 调用）
+  await translateItems(toSend, translateEnabled);
+
+  // 7. 推送飞书
   await sendNewsToFeishu(webhookUrl, webhookSecret, toSend, summaryMaxLen);
   console.log(`[worker] 已推送 ${toSend.length} 条到飞书`);
 
-  // 7. 写回 KV 去重集合
+  // 8. 写回 KV 去重集合
   await markAsSeen(env, toSend.map((i) => i.hash));
 
   return {

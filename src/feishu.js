@@ -79,8 +79,12 @@ function buildCard(items, summaryMaxLen) {
     const source = escapeMd(item.source || "未知来源");
     const time = item.publishedAt ? formatDateCN(new Date(item.publishedAt)) : "";
     const link = item.link || "";
+    const origTitle = item.originalTitle && item.originalTitle !== item.title
+      ? escapeMd(item.originalTitle)
+      : "";
 
     let content = `**${idx + 1}. ${title}**\n`;
+    if (origTitle) content += `<font color="grey">${origTitle}</font>\n`;
     content += `${escapeMd(summary)}\n`;
     const meta = [];
     meta.push(`来源: ${source}`);

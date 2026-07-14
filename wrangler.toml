@@ -24,31 +24,30 @@ SUMMARY_MAX_LENGTH = "200"
 MAX_ITEMS_PER_SOURCE = "20"
 # 抓取超时（毫秒）
 FETCH_TIMEOUT_MS = "15000"
-# 默认 RSS 新闻源（JSON 数组，可按需增删）
+# 是否启用中文翻译（默认开启，设为 "false" 关闭）
+TRANSLATE_ENABLED = "true"
+# 默认 RSS 新闻源（聚焦模型发布、定价变化、API 更新）
 # 如需修改源列表，覆盖此变量即可，无需改动代码
 RSS_SOURCES = """
 [
-  {"name": "MIT Tech Review - AI", "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed"},
-  {"name": "TechCrunch - AI", "url": "https://techcrunch.com/category/artificial-intelligence/feed/"},
-  {"name": "VentureBeat - AI", "url": "https://venturebeat.com/category/ai/feed/"},
-  {"name": "The Verge - AI", "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"},
+  {"name": "LMTimeline", "url": "https://lmtimeline.com/rss.xml"},
   {"name": "OpenAI Blog", "url": "https://openai.com/news/rss.xml"},
+  {"name": "Anthropic News", "url": "https://www.anthropic.com/news/rss.xml"},
   {"name": "Google Research Blog", "url": "https://research.google/blog/rss/"},
-  {"name": "Hugging Face Blog", "url": "https://huggingface.co/blog/feed.xml"},
-  {"name": "Anthropic News", "url": "https://www.anthropic.com/news/rss.xml"}
+  {"name": "Hugging Face Blog", "url": "https://huggingface.co/blog/feed.xml"}
 ]
 """
 
 # ───────────────────────────────────────────────
 # Workers KV 命名空间：用于新闻去重
 # 部署前请先创建：
-#   wrangler kv:namespace create NEWS_KV
+#   npx wrangler kv namespace create NEWS_KV
 # 然后将返回的 id 填到下方，或通过 wrangler 绑定
 # 文档：https://developers.cloudflare.com/workers/runtime-apis/kv/
 # ───────────────────────────────────────────────
 [[kv_namespaces]]
 binding = "NEWS_KV"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+id = "7cfe8acc41d24b9f89cd4f24c9bbc6ba"
 
 # ───────────────────────────────────────────────
 # 可观测性：开启日志

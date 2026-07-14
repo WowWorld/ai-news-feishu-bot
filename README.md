@@ -4,7 +4,8 @@
 
 ## ✨ 特性
 
-- 📡 **多源聚合**：内置 8 个高质量 AI 新闻源（MIT Tech Review、TechCrunch、VentureBeat、The Verge、OpenAI、Google Research、Hugging Face、Anthropic），可自由增删
+- 📡 **多源聚合**：内置 5 个高时效 AI 新闻源（LMTimeline 时间线聚合 + OpenAI / Anthropic / Google Research / Hugging Face 官方博客），聚焦模型发布、定价变化、API 更新
+- 🌐 **中文翻译**：自动将英文标题和摘要翻译为中文（Google Translate + MyMemory 双引擎回退），卡片中同时显示原文参考
 - 🔁 **自动去重**：基于 Workers KV 存储 SHA-256 哈希，跨源、跨天去重，绝不重复推送
 - 📨 **飞书卡片**：互动卡片消息，标题/摘要/来源/时间/原文链接一目了然，支持签名校验
 - ⏰ **定时触发**：Cloudflare Cron Triggers，默认每天北京时间 09:00 自动执行
@@ -25,6 +26,7 @@ ai-news-feishu-bot/
     ├── config.js        # 环境变量读取与默认配置
     ├── rss.js           # RSS 2.0 / Atom 抓取与解析（无第三方依赖）
     ├── feishu.js        # 飞书卡片消息构建与 Webhook 推送（含签名）
+    ├── translate.js     # 英文→中文翻译（Google + MyMemory 双引擎）
     └── dedupe.js        # 基于 KV 的 SHA-256 去重
 ```
 
@@ -51,7 +53,7 @@ npm install
 ### 3. 创建 KV 命名空间（用于去重）
 
 ```bash
-wrangler kv:namespace create NEWS_KV
+npx wrangler kv namespace create NEWS_KV
 ```
 
 把返回的 `id` 填到 `wrangler.toml` 里：
@@ -122,11 +124,12 @@ wrangler deploy
 |--------|------|------|--------|------|
 | `FEISHU_WEBHOOK_URL` | secret | ✅ | — | 飞书自定义机器人 Webhook 地址 |
 | `FEISHU_WEBHOOK_SECRET` | secret | ❌ | — | 签名校验密钥（开启签名时填写） |
-| `RSS_SOURCES` | var | ❌ | 内置 8 源 | JSON 数组，`[{name,url}]` |
+| `RSS_SOURCES` | var | ❌ | 内置 5 源 | JSON 数组，`[{name,url}]`，聚焦模型发布/定价/API |
 | `MAX_ITEMS` | var | ❌ | `10` | 每次推送最多条数 |
 | `SUMMARY_MAX_LENGTH` | var | ❌ | `200` | 摘要最大字符数 |
 | `MAX_ITEMS_PER_SOURCE` | var | ❌ | `20` | 单个源最多抓取条数 |
 | `FETCH_TIMEOUT_MS` | var | ❌ | `15000` | 单源抓取超时（毫秒） |
+| `TRANSLATE_ENABLED` | var | ❌ | `true` | 是否启用中文翻译，设为 `false` 关闭 |
 
 ## 🛠️ 常见问题
 

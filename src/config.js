@@ -24,16 +24,15 @@ export function getSources(env) {
   return DEFAULT_SOURCES;
 }
 
-/** 内置默认 AI 新闻源 */
+/** 内置默认 AI 新闻源（聚焦模型发布、定价变化、API 更新） */
 const DEFAULT_SOURCES = [
-  { name: "MIT Tech Review - AI", url: "https://www.technologyreview.com/topic/artificial-intelligence/feed" },
-  { name: "TechCrunch - AI", url: "https://techcrunch.com/category/artificial-intelligence/feed/" },
-  { name: "VentureBeat - AI", url: "https://venturebeat.com/category/ai/feed/" },
-  { name: "The Verge - AI", url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml" },
+  // 聚合时间线：模型发布 + 定价 + 政策 + 产品，一条源覆盖最广
+  { name: "LMTimeline", url: "https://lmtimeline.com/rss.xml" },
+  // 官方博客：第一手模型发布公告
   { name: "OpenAI Blog", url: "https://openai.com/news/rss.xml" },
+  { name: "Anthropic News", url: "https://www.anthropic.com/news/rss.xml" },
   { name: "Google Research Blog", url: "https://research.google/blog/rss/" },
   { name: "Hugging Face Blog", url: "https://huggingface.co/blog/feed.xml" },
-  { name: "Anthropic News", url: "https://www.anthropic.com/news/rss.xml" },
 ];
 
 /** 读取整型环境变量 */
