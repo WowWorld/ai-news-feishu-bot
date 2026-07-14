@@ -4,7 +4,7 @@
 // - HTTP /trigger：手动触发，方便调试
 // - HTTP /：健康检查
 
-import { getSources, getInt, getStr } from "./config.js";
+import { getSources, getInt, getStr, getKeywords, matchKeywords } from "./config.js";
 import { fetchNewsFromSources } from "./rss.js";
 import {
   fillHashes,
@@ -87,12 +87,31 @@ async function handleScheduled(env) {
     return { message: "未抓取到任何新闻", total: 0, pushed: 0 };
   }
 
+  // 1.5 Nitter 链接转换为 x.com 原始链接
+  for (const item of allItems) {
+    if (item.link) {
+      item.link = item.link.replace(
+        /https?:\/\/[^\/]*nitter[^\/]*|https?:\/\/[^\/]*xcancel[^\/]*/,
+        "https://x.com"
+      );
+    }
+  }
+
+  // 1.6 关键词过滤（只保留额度/用量/重置等相关内容）
+  const keywords = getKeywords(env);
+  const filtered = allItems.filter((item) => matchKeywords(item, keywords));
+  console.log(`[worker] 关键词过滤后 ${filtered.length}/${allItems.length} 条`);
+
+  if (filtered.length === 0) {
+    return { message: "无匹配关键词的新闻", total: allItems.length, pushed: 0 };
+  }
+
   // 2. 计算哈希
-  await fillHashes(allItems);
+  await fillHashes(filtered);
 
   // 3. 全局去重（同一条可能被多个源转载）
   const byKey = new Map();
-  for (const item of allItems) {
+  for (const item of filtered) {
     const key = (item.guid || item.link || item.title || "").trim().toLowerCase();
     if (!key) continue;
     if (!byKey.has(key)) byKey.set(key, item);
@@ -127,6 +146,7 @@ async function handleScheduled(env) {
 
   return {
     total: allItems.length,
+    afterKeywordFilter: filtered.length,
     afterGlobalDedupe: dedupedGlobal.length,
     pushed: toSend.length,
     skippedSeen: fresh.length - toSend.length,

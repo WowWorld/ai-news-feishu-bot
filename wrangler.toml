@@ -3,12 +3,13 @@ main = "src/index.js"
 compatibility_date = "2024-09-23"
 
 # ───────────────────────────────────────────────
-# Cron Triggers 定时触发（默认每天北京时间 09:00 / UTC 01:00）
+# Cron Triggers 定时触发（默认每 2 小时执行一次，及时捕捉额度重置消息）
+# 额度重置类消息时效性强，建议高频检查
 # 修改下方表达式即可调整推送频率
 # 文档：https://developers.cloudflare.com/workers/configuration/cron-triggers/
 # ───────────────────────────────────────────────
 [triggers]
-crons = ["0 1 * * *"]
+crons = ["0 */2 * * *"]
 
 # ───────────────────────────────────────────────
 # 非敏感环境变量（可直接提交到仓库）
@@ -19,22 +20,24 @@ crons = ["0 1 * * *"]
 # 每次推送最多展示的新闻条数
 MAX_ITEMS = "10"
 # 新闻摘要最大字符数
-SUMMARY_MAX_LENGTH = "200"
+SUMMARY_MAX_LENGTH = "280"
 # 单个源最多抓取的条数
-MAX_ITEMS_PER_SOURCE = "20"
+MAX_ITEMS_PER_SOURCE = "30"
 # 抓取超时（毫秒）
 FETCH_TIMEOUT_MS = "15000"
 # 是否启用中文翻译（默认开启，设为 "false" 关闭）
 TRANSLATE_ENABLED = "true"
-# 默认 RSS 新闻源（聚焦模型发布、定价变化、API 更新）
-# 如需修改源列表，覆盖此变量即可，无需改动代码
+# 关键词过滤（逗号分隔，命中任一关键词才推送；留空则推送全部）
+# 默认聚焦 OpenAI/ChatGPT 额度用量重置类消息
+KEYWORDS = "reset,usage,limit,quota,banked,codex,5-hour,5 hour,rate limit,credit,billing,capacity,throttl,额度,重置,用量,限制"
+# 默认 RSS 新闻源
+# 主源：Tibo(@thsottiaux) 的 X/Twitter，通过 xcancel.com 免费获取
+# 补充：LMTimeline 聚合 + OpenAI 官方博客
 RSS_SOURCES = """
 [
+  {"name": "Tibo (@thsottiaux)", "url": "https://xcancel.com/thsottiaux/rss"},
   {"name": "LMTimeline", "url": "https://lmtimeline.com/rss.xml"},
-  {"name": "OpenAI Blog", "url": "https://openai.com/news/rss.xml"},
-  {"name": "Anthropic News", "url": "https://www.anthropic.com/news/rss.xml"},
-  {"name": "Google Research Blog", "url": "https://research.google/blog/rss/"},
-  {"name": "Hugging Face Blog", "url": "https://huggingface.co/blog/feed.xml"}
+  {"name": "OpenAI Blog", "url": "https://openai.com/news/rss.xml"}
 ]
 """
 

@@ -24,16 +24,52 @@ export function getSources(env) {
   return DEFAULT_SOURCES;
 }
 
-/** 内置默认 AI 新闻源（聚焦模型发布、定价变化、API 更新） */
+/** 内置默认新闻源（聚焦 OpenAI/ChatGPT 额度用量动态） */
 const DEFAULT_SOURCES = [
-  // 聚合时间线：模型发布 + 定价 + 政策 + 产品，一条源覆盖最广
+  // Tibo Sottiaux (@thsottiaux) — OpenAI Codex 团队负责人
+  // 专门在 X 上发布额度重置、用量限制调整等消息，最直接的实时源
+  // 通过 xcancel.com（免费 Nitter 实例）获取 RSS
+  { name: "Tibo (@thsottiaux)", url: "https://xcancel.com/thsottiaux/rss" },
+  // 聚合时间线：覆盖模型发布 + 定价变化 + 政策（补充视角）
   { name: "LMTimeline", url: "https://lmtimeline.com/rss.xml" },
-  // 官方博客：第一手模型发布公告
+  // OpenAI 官方博客：正式公告
   { name: "OpenAI Blog", url: "https://openai.com/news/rss.xml" },
-  { name: "Anthropic News", url: "https://www.anthropic.com/news/rss.xml" },
-  { name: "Google Research Blog", url: "https://research.google/blog/rss/" },
-  { name: "Hugging Face Blog", url: "https://huggingface.co/blog/feed.xml" },
 ];
+
+/** 默认关键词过滤（不区分大小写）。命中任一关键词才推送 */
+const DEFAULT_KEYWORDS = [
+  "reset", "usage", "limit", "quota", "banked",
+  "codex", "5-hour", "5 hour", "rate limit",
+  "credit", "billing", "capacity", "throttl",
+  "额度", "重置", "用量", "限制",
+];
+
+/**
+ * 读取关键词过滤列表
+ * 优先使用环境变量 KEYWORDS（逗号分隔），否则返回内置默认
+ * @param {Record<string, any>} env
+ * @returns {string[]}
+ */
+export function getKeywords(env) {
+  const raw = env.KEYWORDS;
+  if (raw && raw.trim()) {
+    const arr = raw.split(",").map((k) => k.trim()).filter(Boolean);
+    if (arr.length > 0) return arr;
+  }
+  return DEFAULT_KEYWORDS;
+}
+
+/**
+ * 判断新闻条目是否命中关键词过滤
+ * @param {{title: string, summary: string}} item
+ * @param {string[]} keywords
+ * @returns {boolean}
+ */
+export function matchKeywords(item, keywords) {
+  if (!keywords || keywords.length === 0) return true; // 无关键词则全部通过
+  const text = `${item.title || ""} ${item.summary || ""}`.toLowerCase();
+  return keywords.some((kw) => text.includes(kw.toLowerCase()));
+}
 
 /** 读取整型环境变量 */
 export function getInt(env, key, fallback) {
