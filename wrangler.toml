@@ -1,0 +1,57 @@
+name = "ai-news-feishu-bot"
+main = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# ───────────────────────────────────────────────
+# Cron Triggers 定时触发（默认每天北京时间 09:00 / UTC 01:00）
+# 修改下方表达式即可调整推送频率
+# 文档：https://developers.cloudflare.com/workers/configuration/cron-triggers/
+# ───────────────────────────────────────────────
+[triggers]
+crons = ["0 1 * * *"]
+
+# ───────────────────────────────────────────────
+# 非敏感环境变量（可直接提交到仓库）
+# 敏感信息（FEISHU_WEBHOOK_URL / FEISHU_WEBHOOK_SECRET）
+# 请用 `wrangler secret put` 设置，不要写在这里
+# ───────────────────────────────────────────────
+[vars]
+# 每次推送最多展示的新闻条数
+MAX_ITEMS = "10"
+# 新闻摘要最大字符数
+SUMMARY_MAX_LENGTH = "200"
+# 单个源最多抓取的条数
+MAX_ITEMS_PER_SOURCE = "20"
+# 抓取超时（毫秒）
+FETCH_TIMEOUT_MS = "15000"
+# 默认 RSS 新闻源（JSON 数组，可按需增删）
+# 如需修改源列表，覆盖此变量即可，无需改动代码
+RSS_SOURCES = """
+[
+  {"name": "MIT Tech Review - AI", "url": "https://www.technologyreview.com/topic/artificial-intelligence/feed"},
+  {"name": "TechCrunch - AI", "url": "https://techcrunch.com/category/artificial-intelligence/feed/"},
+  {"name": "VentureBeat - AI", "url": "https://venturebeat.com/category/ai/feed/"},
+  {"name": "The Verge - AI", "url": "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"},
+  {"name": "OpenAI Blog", "url": "https://openai.com/news/rss.xml"},
+  {"name": "Google Research Blog", "url": "https://research.google/blog/rss/"},
+  {"name": "Hugging Face Blog", "url": "https://huggingface.co/blog/feed.xml"},
+  {"name": "Anthropic News", "url": "https://www.anthropic.com/news/rss.xml"}
+]
+"""
+
+# ───────────────────────────────────────────────
+# Workers KV 命名空间：用于新闻去重
+# 部署前请先创建：
+#   wrangler kv:namespace create NEWS_KV
+# 然后将返回的 id 填到下方，或通过 wrangler 绑定
+# 文档：https://developers.cloudflare.com/workers/runtime-apis/kv/
+# ───────────────────────────────────────────────
+[[kv_namespaces]]
+binding = "NEWS_KV"
+id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+
+# ───────────────────────────────────────────────
+# 可观测性：开启日志
+# ───────────────────────────────────────────────
+[observability]
+enabled = true

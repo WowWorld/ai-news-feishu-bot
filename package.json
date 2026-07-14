@@ -1,0 +1,26 @@
+{
+  "name": "ai-news-feishu-bot",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker that collects latest AI news from RSS feeds and pushes a digest to Feishu (Lark) via custom bot webhook.",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "trigger": "curl -s https://ai-news-feishu-bot.<your-subdomain>.workers.dev/trigger"
+  },
+  "keywords": [
+    "cloudflare-workers",
+    "feishu",
+    "lark",
+    "rss",
+    "ai-news",
+    "cron",
+    "webhook"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  }
+}
