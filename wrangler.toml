@@ -33,7 +33,7 @@ RSS_PROXY = "https://api.allorigins.win/raw?url={url}"
 TRANSLATE_ENABLED = "true"
 # 关键词过滤（逗号分隔，命中任一关键词才推送；留空则推送全部）
 # 默认聚焦 OpenAI/ChatGPT 额度用量重置类消息
-KEYWORDS = "reset,usage,limit,quota,banked,codex,5-hour,5 hour,rate limit,credit,billing,capacity,throttl,额度,重置,用量,限制"
+KEYWORDS = "reset,usage,limit,quota,banked,codex,5-hour,5 hour,rate limit,credit,billing,capacity,throttl,celebration,celebrate,额度,重置,用量,限制"
 # 默认 RSS 新闻源（仅监测 Tibo 的 X/Twitter）
 # 通过 xcancel.com（免费 Nitter 实例）获取 RSS
 RSS_SOURCES = """

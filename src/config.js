@@ -37,6 +37,7 @@ const DEFAULT_KEYWORDS = [
   "reset", "usage", "limit", "quota", "banked",
   "codex", "5-hour", "5 hour", "rate limit",
   "credit", "billing", "capacity", "throttl",
+  "celebration", "celebrate",
   "额度", "重置", "用量", "限制",
 ];
 
