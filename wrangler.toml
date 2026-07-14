@@ -24,7 +24,11 @@ SUMMARY_MAX_LENGTH = "280"
 # 单个源最多抓取的条数
 MAX_ITEMS_PER_SOURCE = "30"
 # 抓取超时（毫秒）
-FETCH_TIMEOUT_MS = "15000"
+FETCH_TIMEOUT_MS = "20000"
+# RSS 代理 URL 模板（含 {url} 占位符）
+# xcancel.com 在 Cloudflare 后面，CF Workers 无法直连，需通过代理获取
+# 设为空字符串则直连
+RSS_PROXY = "https://api.allorigins.win/raw?url={url}"
 # 是否启用中文翻译（默认开启，设为 "false" 关闭）
 TRANSLATE_ENABLED = "true"
 # 关键词过滤（逗号分隔，命中任一关键词才推送；留空则推送全部）

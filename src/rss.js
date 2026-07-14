@@ -11,10 +11,25 @@
 export async function fetchNewsFromSources(sources, env) {
   const timeoutMs = getInt(env, "FETCH_TIMEOUT_MS", 15000);
   const limitPerSource = getInt(env, "MAX_ITEMS_PER_SOURCE", 20);
+  // 代理 URL 模板（含 {url} 占位符），用于绕过 CF Workers 无法直连 CF 保护站点的问题
+  // 默认使用 allorigins.win；留空则直连
+  const proxyUrl = env.RSS_PROXY || "https://api.allorigins.win/raw?url={url}";
+
+  console.log(`[rss] 代理: ${proxyUrl ? proxyUrl.split("?")[0] : "直连"}`);
 
   const tasks = sources.map((source) =>
-    fetchFromSource(source, timeoutMs, limitPerSource).catch((err) => {
+    fetchFromSource(source, timeoutMs, limitPerSource, proxyUrl).catch((err) => {
       console.log(`[rss] 抓取失败 ${source.name}: ${err.message}`);
+      // 代理失败时尝试直连作为最后回退
+      if (proxyUrl) {
+        console.log(`[rss] ${source.name} 代理失败，尝试直连...`);
+        return fetchFromSource(source, timeoutMs, limitPerSource, null).catch(
+          (e) => {
+            console.log(`[rss] 直连也失败 ${source.name}: ${e.message}`);
+            return [];
+          }
+        );
+      }
       return [];
     })
   );
@@ -26,14 +41,19 @@ export async function fetchNewsFromSources(sources, env) {
   return all;
 }
 
-/** 抓取单个源 */
-async function fetchFromSource(source, timeoutMs, limitPerSource) {
+/** 抓取单个源（支持代理回退，解决 CF Workers 无法直连 CF 保护的站点） */
+async function fetchFromSource(source, timeoutMs, limitPerSource, proxyUrl) {
+  // 构建请求 URL：如果配置了代理，走代理；否则直连
+  const makeUrl = (target) =>
+    proxyUrl
+      ? proxyUrl.replace("{url}", encodeURIComponent(target))
+      : target;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(source.url, {
+    const res = await fetch(makeUrl(source.url), {
       headers: {
-        // 部分源会拒绝默认 UA，伪装成浏览器
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
         Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
