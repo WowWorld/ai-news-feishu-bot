@@ -24,16 +24,12 @@ export function getSources(env) {
   return DEFAULT_SOURCES;
 }
 
-/** 内置默认新闻源（聚焦 OpenAI/ChatGPT 额度用量动态） */
+/** 内置默认新闻源（仅监测 Tibo 的 X/Twitter） */
 const DEFAULT_SOURCES = [
   // Tibo Sottiaux (@thsottiaux) — OpenAI Codex 团队负责人
-  // 专门在 X 上发布额度重置、用量限制调整等消息，最直接的实时源
+  // 专门在 X 上发布额度重置、用量限制调整等消息
   // 通过 xcancel.com（免费 Nitter 实例）获取 RSS
   { name: "Tibo (@thsottiaux)", url: "https://xcancel.com/thsottiaux/rss" },
-  // 聚合时间线：覆盖模型发布 + 定价变化 + 政策（补充视角）
-  { name: "LMTimeline", url: "https://lmtimeline.com/rss.xml" },
-  // OpenAI 官方博客：正式公告
-  { name: "OpenAI Blog", url: "https://openai.com/news/rss.xml" },
 ];
 
 /** 默认关键词过滤（不区分大小写）。命中任一关键词才推送 */

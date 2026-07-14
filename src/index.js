@@ -99,11 +99,19 @@ async function handleScheduled(env) {
 
   // 1.6 关键词过滤（只保留额度/用量/重置等相关内容）
   const keywords = getKeywords(env);
-  const filtered = allItems.filter((item) => matchKeywords(item, keywords));
-  console.log(`[worker] 关键词过滤后 ${filtered.length}/${allItems.length} 条`);
+  const keywordFiltered = allItems.filter((item) => matchKeywords(item, keywords));
+  console.log(`[worker] 关键词过滤后 ${keywordFiltered.length}/${allItems.length} 条`);
+
+  // 1.7 时间过滤（只保留最近 24 小时内发布的）
+  const maxAgeMs = getInt(env, "MAX_AGE_HOURS", 24) * 60 * 60 * 1000;
+  const cutoff = Date.now() - maxAgeMs;
+  const filtered = keywordFiltered.filter(
+    (item) => !item.publishedAt || item.publishedAt >= cutoff
+  );
+  console.log(`[worker] 24小时时间过滤后 ${filtered.length}/${keywordFiltered.length} 条`);
 
   if (filtered.length === 0) {
-    return { message: "无匹配关键词的新闻", total: allItems.length, pushed: 0 };
+    return { message: "最近24小时无匹配关键词的推文", total: allItems.length, pushed: 0 };
   }
 
   // 2. 计算哈希
