@@ -1,81 +1,109 @@
 // src/rss.js
-// RSS / Atom 抓取与解析模块
+// 新闻抓取与解析模块
+// 支持 RSS 2.0 / Atom / Nitter HTML 页面三种格式
 // 无第三方依赖，使用正则解析以兼容 Cloudflare Workers 运行时
 
 /**
  * 并发抓取所有新闻源，返回去重前的全部条目（按发布时间倒序）
- * @param {Array<{name:string,url:string}>} sources
- * @param {Record<string, any>} env
- * @returns {Promise<import('./types.js').NewsItem[]>}
  */
 export async function fetchNewsFromSources(sources, env) {
-  const timeoutMs = getInt(env, "FETCH_TIMEOUT_MS", 15000);
-  const limitPerSource = getInt(env, "MAX_ITEMS_PER_SOURCE", 20);
-  // 代理 URL 模板（含 {url} 占位符），用于绕过 CF Workers 无法直连 CF 保护站点的问题
-  // 默认使用 allorigins.win；留空则直连
-  const proxyUrl = env.RSS_PROXY || "https://api.allorigins.win/raw?url={url}";
-
-  console.log(`[rss] 代理: ${proxyUrl ? proxyUrl.split("?")[0] : "直连"}`);
+  const timeoutMs = getInt(env, "FETCH_TIMEOUT_MS", 20000);
+  const limitPerSource = getInt(env, "MAX_ITEMS_PER_SOURCE", 30);
 
   const tasks = sources.map((source) =>
-    fetchFromSource(source, timeoutMs, limitPerSource, proxyUrl).catch((err) => {
+    fetchFromSource(source, timeoutMs, limitPerSource).catch((err) => {
       console.log(`[rss] 抓取失败 ${source.name}: ${err.message}`);
-      // 代理失败时尝试直连作为最后回退
-      if (proxyUrl) {
-        console.log(`[rss] ${source.name} 代理失败，尝试直连...`);
-        return fetchFromSource(source, timeoutMs, limitPerSource, null).catch(
-          (e) => {
-            console.log(`[rss] 直连也失败 ${source.name}: ${e.message}`);
-            return [];
-          }
-        );
-      }
       return [];
     })
   );
   const results = await Promise.all(tasks);
 
   const all = results.flat();
-  // 按发布时间倒序，无时间的排到末尾
   all.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
   return all;
 }
 
-/** 抓取单个源（支持代理回退，解决 CF Workers 无法直连 CF 保护的站点） */
-async function fetchFromSource(source, timeoutMs, limitPerSource, proxyUrl) {
-  // 构建请求 URL：如果配置了代理，走代理；否则直连
-  const makeUrl = (target) =>
-    proxyUrl
-      ? proxyUrl.replace("{url}", encodeURIComponent(target))
-      : target;
-
+/** 抓取单个源 */
+async function fetchFromSource(source, timeoutMs, limitPerSource) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(makeUrl(source.url), {
+    const res = await fetch(source.url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-        Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+        Accept: "text/html, application/rss+xml, application/xml, */*",
       },
       signal: controller.signal,
       redirect: "follow",
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const xml = await res.text();
-    const items = parseFeed(xml, source);
+    const text = await res.text();
+    const items = parseContent(text, source);
+    console.log(`[rss] ${source.name}: 获取到 ${items.length} 条`);
     return items.slice(0, limitPerSource);
   } finally {
     clearTimeout(timer);
   }
 }
 
-/** 自动识别 RSS 2.0 / Atom 并解析 */
-export function parseFeed(xml, source) {
-  if (/<feed[\s>]/i.test(xml) && /<entry[\s>]/i.test(xml)) {
-    return parseAtom(xml, source);
+/** 自动识别内容格式并解析：Nitter HTML / RSS 2.0 / Atom */
+export function parseContent(text, source) {
+  // Nitter/xcancel HTML 页面
+  if (/<!DOCTYPE html|<html/i.test(text) && /timeline-item|tweet-content/i.test(text)) {
+    return parseNitterHtml(text, source);
   }
-  return parseRss(xml, source);
+  // Atom
+  if (/<feed[\s>]/i.test(text) && /<entry[\s>]/i.test(text)) {
+    return parseAtom(text, source);
+  }
+  // RSS 2.0
+  return parseRss(text, source);
+}
+
+// ─────────────────── Nitter HTML ───────────────────
+function parseNitterHtml(html, source) {
+  const items = [];
+  // 按 timeline-item 分割每条推文
+  const blocks = matchAll(html, /<div[^>]*class="[^"]*timeline-item[^"]*"[^>]*>([\s\S]*?)(?=<div[^>]*class="[^"]*timeline-item|<div[^>]*class="[^"]*show-more|<\/div>\s*<\/div>\s*<\/main>|$)/gi);
+
+  for (const block of blocks) {
+    // 推文文本
+    const content = extractClassContent(block, "tweet-content");
+    if (!content) continue;
+
+    // 推文链接（从日期链接的 href 提取）
+    const dateMatch = block.match(/<a[^>]*href="([^"]*\/status\/\d+)"[^>]*title="([^"]*)"/i);
+    const link = dateMatch ? dateMatch[1] : "";
+    const pubDateStr = dateMatch ? dateMatch[2] : "";
+
+    // 如果链接是相对路径，补全为 x.com
+    let fullLink = link;
+    if (fullLink && !fullLink.startsWith("http")) {
+      fullLink = "https://x.com" + (fullLink.startsWith("/") ? "" : "/") + fullLink;
+    }
+
+    const title = decodeHtml(stripTags(content)).trim().split("\n")[0].slice(0, 200);
+    const summary = decodeHtml(stripTags(content)).trim();
+
+    items.push({
+      title: title || "(无标题推文)",
+      link: fullLink,
+      summary,
+      publishedAt: parseDate(pubDateStr),
+      source: source.name,
+      guid: fullLink || summary.slice(0, 50),
+      hash: "",
+    });
+  }
+  return items;
+}
+
+/** 提取 Nitter HTML 中指定 class 的元素内容 */
+function extractClassContent(block, className) {
+  const re = new RegExp(`<[^>]*class="[^"]*${className}[^"]*"[^>]*>([\\s\\S]*?)</`, "i");
+  const m = block.match(re);
+  return m ? m[1] : "";
 }
 
 // ─────────────────── RSS 2.0 ───────────────────

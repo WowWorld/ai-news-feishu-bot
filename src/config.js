@@ -28,8 +28,9 @@ export function getSources(env) {
 const DEFAULT_SOURCES = [
   // Tibo Sottiaux (@thsottiaux) — OpenAI Codex 团队负责人
   // 专门在 X 上发布额度重置、用量限制调整等消息
-  // 通过 xcancel.com（免费 Nitter 实例）获取 RSS
-  { name: "Tibo (@thsottiaux)", url: "https://xcancel.com/thsottiaux/rss" },
+  // 通过 xcancel.com（免费 Nitter 实例）获取 HTML 页面并解析
+  // 注意：RSS 端点需白名单，HTML 页面可直接访问
+  { name: "Tibo (@thsottiaux)", url: "https://xcancel.com/thsottiaux" },
 ];
 
 /** 默认关键词过滤（不区分大小写）。命中任一关键词才推送 */
