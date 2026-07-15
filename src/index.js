@@ -49,6 +49,10 @@ export default {
       return jsonResponse({ sources: getSources(env) });
     }
 
+    if (url.pathname === "/debug") {
+      return handleDebug(env);
+    }
+
     if (url.pathname === "/trigger") {
       try {
         const result = await handleScheduled(env);
@@ -159,6 +163,77 @@ async function handleScheduled(env) {
     pushed: toSend.length,
     skippedSeen: fresh.length - toSend.length,
   };
+}
+
+/**
+ * 诊断端点：测试各种获取方式，返回详细结果
+ */
+async function handleDebug(env) {
+  const target = "https://xcancel.com/thsottiaux/rss";
+  const results = {};
+
+  // 1. 直连测试
+  try {
+    const res = await fetch(target, {
+      headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+      signal: AbortSignal.timeout(15000),
+    });
+    const text = await res.text();
+    results.direct = {
+      status: res.status,
+      contentType: res.headers.get("content-type"),
+      bodyLength: text.length,
+      bodyPreview: text.slice(0, 500),
+    };
+  } catch (e) {
+    results.direct = { error: e.message };
+  }
+
+  // 2. allorigins 代理测试
+  try {
+    const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(target);
+    const res = await fetch(proxyUrl, {
+      signal: AbortSignal.timeout(20000),
+    });
+    const text = await res.text();
+    results.allorigins = {
+      status: res.status,
+      bodyLength: text.length,
+      bodyPreview: text.slice(0, 500),
+    };
+  } catch (e) {
+    results.allorigins = { error: e.message };
+  }
+
+  // 3. HTML 页面测试（非 RSS）
+  try {
+    const htmlUrl = "https://xcancel.com/thsottiaux";
+    const res = await fetch(htmlUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
+      signal: AbortSignal.timeout(15000),
+    });
+    const text = await res.text();
+    results.htmlPage = {
+      status: res.status,
+      bodyLength: text.length,
+      hasTweetContent: text.includes("tweet-content") || text.includes("timeline-item"),
+      bodyPreview: text.slice(0, 500),
+    };
+  } catch (e) {
+    results.htmlPage = { error: e.message };
+  }
+
+  // 4. 测试 allorigins 是否可达（用 example.com）
+  try {
+    const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent("https://example.com"), {
+      signal: AbortSignal.timeout(10000),
+    });
+    results.alloriginsReachable = { status: res.status, ok: res.ok };
+  } catch (e) {
+    results.alloriginsReachable = { error: e.message };
+  }
+
+  return jsonResponse({ target, results });
 }
 
 /** JSON 响应工具函数 */
