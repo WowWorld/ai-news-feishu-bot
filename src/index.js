@@ -169,45 +169,11 @@ async function handleScheduled(env) {
  * 诊断端点：测试各种获取方式，返回详细结果
  */
 async function handleDebug(env) {
-  const target = "https://xcancel.com/thsottiaux/rss";
+  const htmlUrl = "https://xcancel.com/thsottiaux";
   const results = {};
 
-  // 1. 直连测试
+  // 1. 抓取 HTML 页面
   try {
-    const res = await fetch(target, {
-      headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
-      signal: AbortSignal.timeout(15000),
-    });
-    const text = await res.text();
-    results.direct = {
-      status: res.status,
-      contentType: res.headers.get("content-type"),
-      bodyLength: text.length,
-      bodyPreview: text.slice(0, 500),
-    };
-  } catch (e) {
-    results.direct = { error: e.message };
-  }
-
-  // 2. allorigins 代理测试
-  try {
-    const proxyUrl = "https://api.allorigins.win/raw?url=" + encodeURIComponent(target);
-    const res = await fetch(proxyUrl, {
-      signal: AbortSignal.timeout(20000),
-    });
-    const text = await res.text();
-    results.allorigins = {
-      status: res.status,
-      bodyLength: text.length,
-      bodyPreview: text.slice(0, 500),
-    };
-  } catch (e) {
-    results.allorigins = { error: e.message };
-  }
-
-  // 3. HTML 页面测试（非 RSS）
-  try {
-    const htmlUrl = "https://xcancel.com/thsottiaux";
     const res = await fetch(htmlUrl, {
       headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" },
       signal: AbortSignal.timeout(15000),
@@ -216,24 +182,42 @@ async function handleDebug(env) {
     results.htmlPage = {
       status: res.status,
       bodyLength: text.length,
-      hasTweetContent: text.includes("tweet-content") || text.includes("timeline-item"),
-      bodyPreview: text.slice(0, 500),
+      hasTweetContent: text.includes("tweet-content"),
+      hasTimelineItem: text.includes("timeline-item"),
     };
+
+    // 找到 "tweet-content" 附近 1000 字符的原始 HTML，用于调试解析器
+    const idx = text.indexOf("tweet-content");
+    if (idx >= 0) {
+      results.htmlSnippetAroundTweetContent = text.slice(Math.max(0, idx - 200), idx + 800);
+    }
+
+    // 找到 "/status/" 附近的结构，用于调试日期/链接提取
+    const statusIdx = text.indexOf("/status/");
+    if (statusIdx >= 0) {
+      results.htmlSnippetAroundStatus = text.slice(Math.max(0, statusIdx - 300), statusIdx + 300);
+    }
+
+    // 尝试用解析器解析，看提取了多少条
+    try {
+      const { parseContent } = await import("./rss.js");
+      const items = parseContent(text, { name: "debug" });
+      results.parsedItemCount = items.length;
+      if (items.length > 0) {
+        results.firstParsedItem = {
+          title: items[0].title?.slice(0, 100),
+          link: items[0].link,
+          publishedAt: items[0].publishedAt,
+        };
+      }
+    } catch (e) {
+      results.parseError = e.message;
+    }
   } catch (e) {
     results.htmlPage = { error: e.message };
   }
 
-  // 4. 测试 allorigins 是否可达（用 example.com）
-  try {
-    const res = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent("https://example.com"), {
-      signal: AbortSignal.timeout(10000),
-    });
-    results.alloriginsReachable = { status: res.status, ok: res.ok };
-  } catch (e) {
-    results.alloriginsReachable = { error: e.message };
-  }
-
-  return jsonResponse({ target, results });
+  return jsonResponse({ url: htmlUrl, results });
 }
 
 /** JSON 响应工具函数 */

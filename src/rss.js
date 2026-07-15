@@ -64,46 +64,64 @@ export function parseContent(text, source) {
 // ─────────────────── Nitter HTML ───────────────────
 function parseNitterHtml(html, source) {
   const items = [];
-  // 按 timeline-item 分割每条推文
-  const blocks = matchAll(html, /<div[^>]*class="[^"]*timeline-item[^"]*"[^>]*>([\s\S]*?)(?=<div[^>]*class="[^"]*timeline-item|<div[^>]*class="[^"]*show-more|<\/div>\s*<\/div>\s*<\/main>|$)/gi);
 
-  for (const block of blocks) {
-    // 推文文本
-    const content = extractClassContent(block, "tweet-content");
-    if (!content) continue;
+  // 策略：独立提取所有推文内容和所有日期链接，按位置配对
+  // 1. 提取所有 tweet-content 文本
+  const contents = [];
+  const contentRe = /<[^>]*class="[^"]*tweet-content[^"]*"[^>]*>([\s\S]*?)<\/(?:div|p)>/gi;
+  let cm;
+  while ((cm = contentRe.exec(html)) !== null) {
+    const text = decodeHtml(stripTags(cm[1])).trim();
+    if (text) contents.push(text);
+  }
 
-    // 推文链接（从日期链接的 href 提取）
-    const dateMatch = block.match(/<a[^>]*href="([^"]*\/status\/\d+)"[^>]*title="([^"]*)"/i);
-    const link = dateMatch ? dateMatch[1] : "";
-    const pubDateStr = dateMatch ? dateMatch[2] : "";
+  // 2. 提取所有推文日期链接 (href="/user/status/ID" title="DATE")
+  const dates = [];
+  const dateRe = /href="([^"]*\/status\/\d+)"[^>]*title="([^"]*)"/gi;
+  let dm;
+  while ((dm = dateRe.exec(html)) !== null) {
+    dates.push({ link: dm[1], dateStr: dm[2] });
+  }
 
-    // 如果链接是相对路径，补全为 x.com
+  console.log(`[rss] Nitter HTML: ${contents.length} 条推文内容, ${dates.length} 个日期链接`);
+
+  // 3. 配对组装
+  const count = Math.min(contents.length, dates.length);
+  for (let i = 0; i < count; i++) {
+    const text = contents[i];
+    const { link, dateStr } = dates[i];
+
     let fullLink = link;
     if (fullLink && !fullLink.startsWith("http")) {
       fullLink = "https://x.com" + (fullLink.startsWith("/") ? "" : "/") + fullLink;
     }
 
-    const title = decodeHtml(stripTags(content)).trim().split("\n")[0].slice(0, 200);
-    const summary = decodeHtml(stripTags(content)).trim();
-
     items.push({
-      title: title || "(无标题推文)",
+      title: text.split("\n")[0].slice(0, 200) || "(无标题)",
       link: fullLink,
-      summary,
-      publishedAt: parseDate(pubDateStr),
+      summary: text,
+      publishedAt: parseDate(dateStr),
       source: source.name,
-      guid: fullLink || summary.slice(0, 50),
+      guid: fullLink || text.slice(0, 50),
       hash: "",
     });
   }
-  return items;
-}
 
-/** 提取 Nitter HTML 中指定 class 的元素内容 */
-function extractClassContent(block, className) {
-  const re = new RegExp(`<[^>]*class="[^"]*${className}[^"]*"[^>]*>([\\s\\S]*?)</`, "i");
-  const m = block.match(re);
-  return m ? m[1] : "";
+  // 如果日期链接不够但内容有剩余，也加入（无日期）
+  for (let i = count; i < contents.length; i++) {
+    const text = contents[i];
+    items.push({
+      title: text.split("\n")[0].slice(0, 200) || "(无标题)",
+      link: "",
+      summary: text,
+      publishedAt: null,
+      source: source.name,
+      guid: text.slice(0, 50),
+      hash: "",
+    });
+  }
+
+  return items;
 }
 
 // ─────────────────── RSS 2.0 ───────────────────
