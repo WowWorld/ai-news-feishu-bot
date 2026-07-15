@@ -75,9 +75,10 @@ function parseNitterHtml(html, source) {
     if (text) contents.push(text);
   }
 
-  // 2. 提取所有推文日期链接 (href="/user/status/ID" title="DATE")
+  // 2. 提取所有推文日期链接 (href="/user/status/ID#m" title="DATE")
+  // 注意：xcancel 的 href 带 #m 后缀，用 [^"]+ 匹配
   const dates = [];
-  const dateRe = /href="([^"]*\/status\/\d+)"[^>]*title="([^"]*)"/gi;
+  const dateRe = /href="([^"]*\/status\/[^"]+)"[^>]*title="([^"]*)"/gi;
   let dm;
   while ((dm = dateRe.exec(html)) !== null) {
     dates.push({ link: dm[1], dateStr: dm[2] });
@@ -93,7 +94,8 @@ function parseNitterHtml(html, source) {
 
     let fullLink = link;
     if (fullLink && !fullLink.startsWith("http")) {
-      fullLink = "https://x.com" + (fullLink.startsWith("/") ? "" : "/") + fullLink;
+      // 去掉 #m 后缀，补全为 x.com 链接
+      fullLink = "https://x.com" + (fullLink.startsWith("/") ? "" : "/") + fullLink.replace(/#m$/, "");
     }
 
     items.push({
@@ -224,7 +226,9 @@ function decodeHtml(str) {
 /** 解析日期字符串为时间戳 */
 function parseDate(str) {
   if (!str) return null;
-  const t = Date.parse(str);
+  // 清理 Nitter 日期格式中的特殊字符 "Jul 15, 2026 · 2:01 AM UTC"
+  const cleaned = str.replace(/·/g, "").replace(/\s+/g, " ").trim();
+  const t = Date.parse(cleaned);
   return Number.isNaN(t) ? null : t;
 }
 
